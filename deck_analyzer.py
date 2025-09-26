@@ -87,11 +87,42 @@ ACE_SPEC_LIST = [
 
 # Single source of truth is ACE_SPEC_LIST; derive URLs and mappings from it.
 def _ace_short(u: str) -> str:
+    """Return a short, stable ACE SPEC URL form for display/logging."""
     try:
         base = u.split('?', 1)[0]
         return base.replace('/regu/XY', '')
     except Exception:
         return u
+
+def print_ace_spec_list_once():
+    """Print ACE_SPEC_LIST once across the whole run (guarded by env var)."""
+    if os.environ.get("ACE_PRINTED_ONCE") == "1":
+        return
+    try:
+        print("\n=== ACE SPEC（由 ACE_SPEC_LIST 輸出） ===")
+        print("ACE_SPEC_LIST_DETECTED = [")
+        for name, u in ACE_SPEC_LIST:
+            if not name or not u:
+                continue
+            safe_name = (name or '').replace('"', '\\"')
+            print(f'    ("{safe_name}", "{_ace_short(u)}"),')
+        print("]")
+    except Exception as _e:
+        print(f"[warn] 列印 ACE SPEC 偵測結果失敗：{_e}")
+    os.environ["ACE_PRINTED_ONCE"] = "1"
+
+def section_to_category(sec: str) -> Optional[str]:
+    """Map a section header (JP text from deck list) to an internal category key."""
+    if not sec:
+        return None
+    # NOTE: these literals are from site sections and may appear garbled on non-Unicode consoles.
+    if   "?????" in sec: return "energy"
+    elif "????"  in sec: return "supporter"
+    elif "?????" in sec: return "stadium"
+    elif "???"    in sec: return "tools"
+    elif "???"    in sec: return "goods"
+    elif "????"  in sec: return "pokemon"
+    return None
 
 # Derived URL list (single source from ACE_SPEC_LIST)
 
@@ -1131,7 +1162,8 @@ def analyze_source(src: str) -> None:
 
     # ACE 目標（單一來源）
     ace_targets_raw = {normalize_name(n): _ace_short(u) for n, u in ACE_SPEC_LIST if n and u}
-    try:
+    print_ace_spec_list_once()
+    if False:
         print("\n=== ACE SPEC（由 ACE_SPEC_LIST 輸出） ===")
         print("ACE_SPEC_LIST_DETECTED = [")
         for name, u in ACE_SPEC_LIST:
@@ -1246,6 +1278,8 @@ def analyze_source(src: str) -> None:
     for jp_norm in ace_targets_raw.keys():
         total_count = sum(int(cnt) for _, n, _, cnt in ace_occurrences if n == jp_norm)
         used_decks = len(ace_deck_sets[jp_norm])
+        if used_decks == 0:
+            continue
         if used_decks == 0:
             print(f"⚠ 提醒：{jp_norm} 在所統計的牌組中都沒有出現。")
         else:
