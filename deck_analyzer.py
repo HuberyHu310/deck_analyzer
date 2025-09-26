@@ -1,38 +1,39 @@
-﻿"""
+"""
 deck_analyzer_v1
 
-摘要：
-- 常數與可調參數集中於檔案上方（CATEGORIES、ACE_SPEC_LIST、Tunables）。
-- ACE SPEC 名稱與網址以 ACE_SPEC_LIST 為單一來源，並轉為短網址並使用於後續流程。
-- 名稱正規化用於「同名合併」與建議牌組張數限制。
-- 類別判斷有優先順序（避免「ポケモンのどうぐ」被歸到寶可夢）。
-- 產出多種 CSV 報表與建議 60 張示範牌組。
+重點說明：
+- 透過設定常數（CATEGORIES、ACE_SPEC_LIST、Tunables）調整分析匯出。
+- ACE SPEC 卡表僅依 ACE_SPEC_LIST 來源，建議以此維護內容。
+- 支援以標準化名稱對照牌組資料與統計結果。
+- 保留 Windows 主控台編碼處理，避免亂碼。
+- 會輸出 CSV 報表並限制建議清單 60 筆。
 """
-# 產生時間（台灣，UTC+8）：2025-09-25 20:42:32
+# 建檔時間（台北時區，UTC+8）：2025-09-25 20:42:32
 
 
 # ---------------- Imports ----------------
-import os
-import sys
-import re
-import csv
-import time
-import json
-import sqlite3
-import datetime
-from typing import List, Dict, Tuple, Optional, Set
+# pip install: requests, beautifulsoup4, selenium, webdriver-manager
+import os  # 檔案路徑與環境變數
+import sys  # CLI 參數與系統狀態
+import re  # 正則表示式工具
+import csv  # 匯出 CSV 報表
+import time  # 延遲與基礎計時
+import json  # JSON 序列化與讀寫
+import sqlite3  # SQLite 快取資料庫
+import datetime  # 日期與時間處理
+from typing import List, Dict, Tuple, Optional, Set  # 型別註記輔助
 
-import requests
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-from bs4 import BeautifulSoup
+import requests  # 發送 HTTP 請求
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed  # 多程序與多執行線平行處理
+from bs4 import BeautifulSoup, FeatureNotFound  # HTML ???????
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium import webdriver  # 啟動瀏覽器自動化
+from selenium.webdriver.chrome.service import Service  # 管理 ChromeDriver 服務
+from selenium.webdriver.chrome.options import Options  # 設定 Chrome 啟動選項
+from selenium.webdriver.common.by import By  # DOM 元素定位方式
+from selenium.webdriver.support.ui import WebDriverWait  # Selenium 顯式等待
+from selenium.webdriver.support import expected_conditions as EC  # Selenium 等待條件
+from webdriver_manager.chrome import ChromeDriverManager  # 自動安裝 ChromeDriver
 
 # Runtime encoding hints for Windows consoles
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
@@ -53,6 +54,34 @@ CATEGORIES = [
 ]
 ## (removed) print_top5_by_category / ace_official_url — not used in current flow
 
+
+
+# BeautifulSoup ?????????? lxml???????? parser
+_SOUP_PARSER: Optional[str] = None
+_SOUP_FALLBACK_WARNED = False
+
+def _make_soup(html: str) -> BeautifulSoup:
+    """?? BeautifulSoup ????? lxml ????? html.parser?"""
+    global _SOUP_PARSER, _SOUP_FALLBACK_WARNED
+    candidates = ("lxml", "html.parser")
+    if _SOUP_PARSER:
+        try:
+            return BeautifulSoup(html, _SOUP_PARSER)
+        except FeatureNotFound:
+            _SOUP_PARSER = None
+    last_exc: Optional[Exception] = None
+    for parser in candidates:
+        try:
+            soup = BeautifulSoup(html, parser)
+            _SOUP_PARSER = parser
+            if parser != "lxml" and not _SOUP_FALLBACK_WARNED:
+                print("[warn] ??? lxml??? html.parser????? pip install lxml ????????")
+                _SOUP_FALLBACK_WARNED = True
+            return soup
+        except FeatureNotFound as exc:
+            last_exc = exc
+    if last_exc:
+        raise last_exc
 
 # ---------------- ACE SPEC Catalog ----------------
 # (名稱正規化後的顯示名, 官方URL；若未知則空字串)
@@ -111,18 +140,37 @@ def print_ace_spec_list_once():
         print(f"[warn] 列印 ACE SPEC 偵測結果失敗：{_e}")
     os.environ["ACE_PRINTED_ONCE"] = "1"
 
-def section_to_category(sec: str) -> Optional[str]:
+def section_to_category(sec: Optional[str]) -> Optional[str]:
     """Map a section header (JP text from deck list) to an internal category key."""
     if not sec:
         return None
-    # NOTE: these literals are from site sections and may appear garbled on non-Unicode consoles.
-    if   "?????" in sec: return "energy"
-    elif "????"  in sec: return "supporter"
-    elif "?????" in sec: return "stadium"
-    elif "???"    in sec: return "tools"
-    elif "???"    in sec: return "goods"
-    elif "????"  in sec: return "pokemon"
+    normalized = (sec or "").strip()
+    jp_keywords = [
+        ("????????", "tools"),
+        ("????", "pokemon"),
+        ("???", "goods"),
+        ("????", "supporter"),
+        ("?????", "stadium"),
+        ("?????", "energy"),
+        ("???????", "energy"),
+        ("ACE SPEC", "ace_spec"),
+    ]
+    for key, cat in jp_keywords:
+        if key in normalized:
+            return cat
+    legacy_map = {
+        "?????": "energy",
+        "????": "supporter",
+        "?????": "stadium",
+        "???": "tools",
+        "???": "goods",
+        "????": "pokemon",
+    }
+    for key, cat in legacy_map.items():
+        if key in normalized:
+            return cat
     return None
+
 
 # Derived URL list (single source from ACE_SPEC_LIST)
 
@@ -134,7 +182,7 @@ POKECABOOK_SOURCES: List[str] = [
 ]
 # 相容既有程式碼：提供第一個來源作為預設單一來源常數
 POKECABOOK_URL: str = POKECABOOK_SOURCES[0] if POKECABOOK_SOURCES else ""
-RECENT_DECKS_LIMIT = 30                  # 每個來源統計近 N 副；None = 全部
+RECENT_DECKS_LIMIT = 10                  # 每個來源統計近 N 副；None = 全部
 USE_ACE_SPEC = True                     # 是否選用 ACE SPEC（標準最多 1 張）
 FORCE_ACE_SPEC_NAME: Optional[str] = None  # 固定選用某張（填日文名，例："コンピュータ通信"），None 不指定
 FILTER_CARD_KEYWORDS: List[str] = []    # 僅統計含特定卡片（以卡名子字串比對，日文）；空陣列＝不過濾
@@ -301,7 +349,7 @@ def get_official_card_name(url: str, timeout: int = 20) -> Optional[str]:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         r = requests.get(url, timeout=timeout, headers=headers)
         r.raise_for_status()
-        s = BeautifulSoup(r.text, "lxml")
+        s = _make_soup(r.text)
         node = s.select_one("h1") or s.select_one(".cardname, .heading, .ttl")
         name_jp = node.get_text(strip=True) if node else None
         if not name_jp:
@@ -372,7 +420,7 @@ def _parse_date_from_text(text: str) -> Optional[str]:
 def collect_deck_ids_with_date(url: str) -> Tuple[List[Tuple[str, Optional[str]]], Optional[str]]:
     resp = requests.get(url, timeout=30, headers={"User-Agent":"Mozilla/5.0"})
     resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "lxml")
+    soup = _make_soup(resp.text)
     deck_ids = []
     pat = re.compile(r"/deckID/([A-Za-z0-9\-]+)")
     for a in soup.find_all("a", href=True):
@@ -709,16 +757,11 @@ def analyze_deck(deck_id: str, cards: List[Tuple[str, str, int, str]]) -> Dict[s
     """
     stats = {"deck_id": deck_id,"pokemon":0,"goods":0,"tools":0,"supporter":0,"stadium":0,"energy":0,"total_cards":0}
     for sec, _, cnt, _ in cards:
-        # 注意順序：先匹配較具體的分類，最後才是「ポケモン」
-        if   "エネルギー" in sec: stats["energy"]    += cnt
-        elif "サポート"  in sec: stats["supporter"] += cnt
-        elif "スタジアム" in sec: stats["stadium"]  += cnt
-        elif "どうぐ"    in sec: stats["tools"]     += cnt
-        elif "グッズ"    in sec: stats["goods"]     += cnt
-        elif "ポケモン"  in sec: stats["pokemon"]   += cnt
+        cat = section_to_category(sec)
+        if cat and cat in stats:
+            stats[cat] += cnt
         stats["total_cards"] += cnt
     return stats
-
 def round_targets_to_60(avg_counts: Dict[str, float]) -> Dict[str, int]:
     """
     依各類型平均張數取無條件捨去的整數；若總和不足 60，差額補到 energy。
@@ -1006,7 +1049,7 @@ def get_card_image_url_http(url: str, timeout: int = 20) -> Optional[str]:
     try:
         r = requests.get(url, timeout=timeout, headers={"User-Agent":"Mozilla/5.0"})
         r.raise_for_status()
-        s = BeautifulSoup(r.text, "lxml")
+        s = _make_soup(r.text)
         og = s.select_one("meta[property='og:image']")
         if og and og.get('content') and '/assets/images/card_images/' in og['content']:
             return og['content']
@@ -1162,16 +1205,17 @@ def analyze_source(src: str) -> None:
 
     # ACE 目標（單一來源）
     ace_targets_raw = {normalize_name(n): _ace_short(u) for n, u in ACE_SPEC_LIST if n and u}
-    print_ace_spec_list_once()
-    if False:
-        print("\n=== ACE SPEC（由 ACE_SPEC_LIST 輸出） ===")
-        print("ACE_SPEC_LIST_DETECTED = [")
-        for name, u in ACE_SPEC_LIST:
-            if not name or not u:
-                continue
-            safe_name = name.replace('"', '\\"')
-            print(f'    ("{safe_name}", "{_ace_short(u)}"),')
-        print("]")
+    try:
+        print_ace_spec_list_once()
+        if False:
+            print("\n=== ACE SPEC（由 ACE_SPEC_LIST 輸出） ===")
+            print("ACE_SPEC_LIST_DETECTED = [")
+            for name, u in ACE_SPEC_LIST:
+                if not name or not u:
+                    continue
+                safe_name = name.replace('"', '\\"')
+                print(f'    ("{safe_name}", "{_ace_short(u)}"),')
+            print("]")
     except Exception as _e:
         print(f"[warn] 列印 ACE SPEC 偵測結果失敗：{_e}")
 
@@ -1216,7 +1260,27 @@ def analyze_source(src: str) -> None:
                     continue
 
                 for sec, raw_name, cnt, url in cards:
-                    all_rows.append((did, sec, raw_name, cnt, url))
+                    cat = section_to_category(sec)
+                    if cat not in cats:
+                        continue
+
+                    disp_name = get_official_card_name(url) or raw_name
+                    norm = normalize_name(disp_name)
+                    norm = apply_manual_aliases(norm, url)
+                    if norm not in name_display[cat]:
+                        name_display[cat][norm] = disp_name
+                    if norm not in name_primary_url[cat] and url:
+                        name_primary_url[cat][norm] = url
+                    if norm not in name_all_urls[cat]:
+                        name_all_urls[cat][norm] = set()
+                    if url:
+                        name_all_urls[cat][norm].add(url)
+                    card_totals[cat][norm] = card_totals[cat].get(norm, 0) + cnt
+                    s = card_decks[cat].get(norm)
+                    if s is None:
+                        card_decks[cat][norm] = {did}
+                    else:
+                        s.add(did)
 
                 for sec, raw_name, cnt, url in cards:
                     if   "エネルギー" in sec: cat = "energy"
@@ -1532,13 +1596,9 @@ def analyze_source(src: str) -> None:
         for did, sec, raw_name, cnt, url in all_rows:
             if did not in dids:
                 continue
-            if   "?????" in sec: cat = "energy"
-            elif "????"  in sec: cat = "supporter"
-            elif "?????" in sec: cat = "stadium"
-            elif "???"    in sec: cat = "tools"
-            elif "???"    in sec: cat = "goods"
-            elif "????"  in sec: cat = "pokemon"
-            else: continue
+            cat = section_to_category(sec)
+            if cat not in cats2:
+                continue
             disp = get_official_card_name(url) or raw_name
             norm = normalize_name(disp)
             norm = apply_manual_aliases(norm, url)
@@ -1546,11 +1606,12 @@ def analyze_source(src: str) -> None:
                 display2[cat][norm] = disp
             if norm not in primary2[cat] and url:
                 primary2[cat][norm] = url
+            allurls2.setdefault(cat, {})
             if norm not in allurls2[cat]:
                 allurls2[cat][norm] = set()
             if url:
                 allurls2[cat][norm].add(url)
-            totals2[cat][norm] = totals2[cat].get(norm, 0) + cnt
+            totals2[cat][norm] = totals2[cat].get(norm, 0) + int(cnt)
             sset = decks2[cat].get(norm)
             if sset is None:
                 decks2[cat][norm] = {did}
@@ -1565,12 +1626,51 @@ def analyze_source(src: str) -> None:
                 sums2[c] += s[c]
         avgs2 = {c: (sums2[c]/n_sub if n_sub else 0.0) for c in cats2}
         targets2 = round_targets_to_60(avgs2)
+        print(f"\n=== [?? {d}] ???? ===")
+        print(f"????{n_sub}")
+        for cat in cats2:
+            print(f"  {cat}: ?? {avgs2.get(cat, 0.0):.2f} ?")
+        if n_sub > 0:
+            print(f"  ?????????? {SUGGEST_MIN_DECKS} ????{SUGGEST_MIN_USAGE_RATE:.1%} ???")
+        print(f"--- [?? {d}] ?????? Top3?? avg_overall? ---")
+        for cat in cats2:
+            items = []
+            for norm_name, total_cnt in totals2[cat].items():
+                avg_overall = (total_cnt / n_sub) if n_sub else 0.0
+                decks_with_card = len(decks2[cat].get(norm_name, set()))
+                disp = display2[cat].get(norm_name, norm_name)
+                url = primary2[cat].get(norm_name, "")
+                items.append((avg_overall, decks_with_card, disp, url))
+            if not items:
+                print(f"[{cat}] ???")
+                continue
+            items.sort(key=lambda x: x[0], reverse=True)
+            top_items = items[:3]
+            print(f"[{cat}]")
+            for avg_overall, decks_with_card, disp, url in top_items:
+                link = url or "???????"
+                print(f"  {disp}??? {avg_overall:.2f} ????? {decks_with_card} ??? -> {link}")
 
         sug2 = build_suggested_deck(targets2, totals2, decks2, primary2, display2, n_sub,
                                     ace_jp_norm_names, USE_ACE_SPEC)
         sug2, _ = enforce_ace_spec_policy(sug2, ace_jp_norm_names, USE_ACE_SPEC, FORCE_ACE_SPEC_NAME,
                                           totals2, decks2, primary2, display2, n_sub, ace_targets_raw)
         sug2 = _final_strict_name_cap(sug2, ace_jp_norm_names)
+        print(f"\n=== [?? {d}] ??????? 60 ?? ===")
+        cat_totals2 = {c: 0 for c in cats2}
+        total_cards2 = 0
+        for cat, name, copies, _ in sug2:
+            cat_totals2[cat] = cat_totals2.get(cat, 0) + int(copies)
+            total_cards2 += int(copies)
+        for cat in cats2:
+            block_cards = [(c, n, int(k), u) for (c, n, k, u) in sug2 if c == cat]
+            if not block_cards:
+                continue
+            print(f"[{cat}]??? {cat_totals2.get(cat, 0)} ??")
+            for _, name, copies, url in block_cards:
+                link = url or "???????"
+                print(f"  {name} ? {copies}  -> {link}")
+        print(f"???{total_cards2} ?")
 
         csv_path = os.path.join(OUT, f"suggested_deck__date_{d}.csv")
         with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
