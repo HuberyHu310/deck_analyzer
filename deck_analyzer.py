@@ -419,10 +419,133 @@ def collect_deck_ids_with_date(url: str) -> Tuple[List[Tuple[str, Optional[str]]
             pass
         return None
 
+    # Enhanced: prefer deck-level date; skip anchors that look like aggregated summaries
+    def _nearest_date_info_ex(anchor) -> Tuple[Optional[str], bool]:
+        import re as _re
+        re_ymd = _re.compile(r"(20\d{2})[./-](\d{1,2})[./-](\d{1,2})")
+        re_ymd_jp = _re.compile(r"(20\d{2})\s*�~\s*(\d{1,2})\s*��\s*(\d{1,2})\s*��")
+        re_md = _re.compile(r"(?<!\d)(\d{1,2})[./-](\d{1,2})(?!\d)")
+        re_md_jp = _re.compile(r"(\d{1,2})\s*��\s*(\d{1,2})\s*��")
+        range_mark_re = _re.compile(r"[~〜～]|\bto\b|\b-\b")
+        def _txt(n):
+            try: return (n.get_text(" ", strip=True) or "")
+            except Exception: return str(n)
+        # Build contexts in priority order: self, parent, grandparent, nearby siblings
+        contexts = []
+        contexts.append(_txt(anchor))
+        p = anchor.parent
+        for _ in range(2):
+            if not p: break
+            contexts.append(_txt(p)); p = p.parent
+        try:
+            sibs = list(anchor.parent.children) if anchor.parent else []
+            if sibs:
+                idx = sibs.index(anchor)
+                for j in [*range(max(0, idx-3), idx), *range(idx+1, min(len(sibs), idx+4))]:
+                    try: contexts.append(_txt(sibs[j]))
+                    except Exception: pass
+        except Exception:
+            pass
+        # Evaluate one context at a time; if that single context has multiple dates, mark summary
+        for t in contexts:
+            ymds = re_ymd.findall(t) + re_ymd_jp.findall(t)
+            mds = re_md.findall(t) + re_md_jp.findall(t)
+            total_tokens = len(ymds) + len(mds)
+            if total_tokens >= 2 or (total_tokens >= 1 and range_mark_re.search(t)):
+                return None, True
+            if total_tokens == 1:
+                if ymds:
+                    y,mo,da = [int(x) for x in ymds[0]]
+                    return f"{y:04d}-{mo:02d}-{da:02d}", False
+                mo,da = [int(x) for x in mds[0]]
+                cur_year = datetime.datetime.now().year
+                return f"{cur_year:04d}-{mo:02d}-{da:02d}", False
+        return None, False
+
+    # New helper with richer signals: returns (ymd_str, (mo,da) or None, is_summary)
+    def _nearest_date_info_ex2(anchor) -> Tuple[Optional[str], Optional[Tuple[int,int]], bool]:
+        import re as _re
+        re_ymd = _re.compile(r"(20\d{2})[./-](\d{1,2})[./-](\d{1,2})")
+        re_ymd_jp = _re.compile(r"(20\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
+        re_md = _re.compile(r"(?<!\d)(\d{1,2})[./-](\d{1,2})(?!\d)")
+        re_md_jp = _re.compile(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日")
+        range_mark_re = _re.compile(r"[~〜～]|\bto\b|\b-\b")
+
+        def _txt(n):
+            try:
+                return (n.get_text(" ", strip=True) or "")
+            except Exception:
+                return str(n)
+
+        contexts = []
+        contexts.append(_txt(anchor))
+        p = anchor.parent
+        for _ in range(2):
+            if not p:
+                break
+            contexts.append(_txt(p)); p = p.parent
+        try:
+            sibs = list(anchor.parent.children) if anchor.parent else []
+            if sibs:
+                idx = sibs.index(anchor)
+                for j in [*range(max(0, idx-3), idx), *range(idx+1, min(len(sibs), idx+4))]:
+                    try:
+                        contexts.append(_txt(sibs[j]))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        for t in contexts:
+            ymds = re_ymd.findall(t) + re_ymd_jp.findall(t)
+            mds = re_md.findall(t) + re_md_jp.findall(t)
+            total_tokens = len(ymds) + len(mds)
+            if total_tokens >= 2 or (total_tokens >= 1 and range_mark_re.search(t)):
+                return None, None, True
+            if total_tokens == 1:
+                if ymds:
+                    y,mo,da = [int(x) for x in ymds[0]]
+                    return f"{y:04d}-{mo:02d}-{da:02d}", None, False
+                mo,da = [int(x) for x in mds[0]]
+                return None, (int(mo), int(da)), False
+        return None, None, False
+
+    # Year roll logic across the listing for month/day-only dates
+    cur_exec_year = datetime.datetime.now().year
+    _year_cursor: Optional[int] = cur_exec_year
+    _prev_month: Optional[int] = None
+
     for did in unique:
         a = id_to_first_anchor.get(did)
-        d_local = nearest_date_str(a) if a else None
-        pairs.append((did, d_local or date_str))
+        if not a:
+            pairs.append((did, date_str)); continue
+        ymd_str, md_tuple, is_summary = _nearest_date_info_ex2(a)
+        if is_summary:
+            continue
+        final_date: Optional[str] = None
+        if ymd_str:
+            final_date = ymd_str
+            try:
+                y, m, d = [int(x) for x in ymd_str.split('-')]
+                _year_cursor, _prev_month = y, m
+            except Exception:
+                pass
+        elif md_tuple:
+            m, d = md_tuple
+            y = _year_cursor if _year_cursor is not None else cur_exec_year
+            if _prev_month is not None and m > _prev_month:
+                y = (y or cur_exec_year) - 1
+            final_date = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+            _year_cursor, _prev_month = y, m
+        else:
+            final_date = date_str
+            if final_date:
+                try:
+                    y, m, d = [int(x) for x in final_date.split('-')]
+                    _year_cursor, _prev_month = y, m
+                except Exception:
+                    pass
+        pairs.append((did, final_date))
 
     return pairs, date_str
 
@@ -1339,7 +1462,8 @@ def analyze_source(src: str) -> None:
     for key, info in uniq.items():
         image_paths.append(url_to_local.get(key, ""))
         n = int(info.get("copies", 0))
-        labels.append(f"x{n}" if n > 1 else "")
+        # Also mark single-copy cards as x1 (previously left blank)
+        labels.append(f"x{n}" if n >= 1 else "")
 
     import math
     n_cards = max(1, len(image_paths))
@@ -1352,7 +1476,149 @@ def analyze_source(src: str) -> None:
     else:
         print("未能產生拼圖（可能缺少 Pillow）。仍已下載個別圖片於 output/suggested_images/")
 
+    # ===== 依日期輸出建議牌組（CSV + 拼貼） =====
+    date_to_dids = {}
+    for s in all_stats:
+        d = s.get("date")
+        if not d:
+            continue
+        date_to_dids.setdefault(d, set()).add(s.get("deck_id"))
+
+    from collections import OrderedDict
+    for d, dids in sorted(date_to_dids.items()):
+        if not dids:
+            continue
+        cats2 = ["pokemon","goods","tools","supporter","stadium","energy"]
+        totals2 = {c:{} for c in cats2}
+        decks2  = {c:{} for c in cats2}
+        primary2= {c:{} for c in cats2}
+        allurls2= {c:{} for c in cats2}
+        display2= {c:{} for c in cats2}
+
+        for did, sec, raw_name, cnt, url in all_rows:
+            if did not in dids:
+                continue
+            if   "?????" in sec: cat = "energy"
+            elif "????"  in sec: cat = "supporter"
+            elif "?????" in sec: cat = "stadium"
+            elif "???"    in sec: cat = "tools"
+            elif "???"    in sec: cat = "goods"
+            elif "????"  in sec: cat = "pokemon"
+            else: continue
+            disp = get_official_card_name(url) or raw_name
+            norm = normalize_name(disp)
+            norm = apply_manual_aliases(norm, url)
+            if norm not in display2[cat]:
+                display2[cat][norm] = disp
+            if norm not in primary2[cat] and url:
+                primary2[cat][norm] = url
+            if norm not in allurls2[cat]:
+                allurls2[cat][norm] = set()
+            if url:
+                allurls2[cat][norm].add(url)
+            totals2[cat][norm] = totals2[cat].get(norm, 0) + cnt
+            sset = decks2[cat].get(norm)
+            if sset is None:
+                decks2[cat][norm] = {did}
+            else:
+                sset.add(did)
+
+        sub_stats = [s for s in all_stats if s.get("deck_id") in dids]
+        n_sub = len(sub_stats)
+        sums2 = {c:0 for c in cats2}
+        for s in sub_stats:
+            for c in cats2:
+                sums2[c] += s[c]
+        avgs2 = {c: (sums2[c]/n_sub if n_sub else 0.0) for c in cats2}
+        targets2 = round_targets_to_60(avgs2)
+
+        sug2 = build_suggested_deck(targets2, totals2, decks2, primary2, display2, n_sub,
+                                    ace_jp_norm_names, USE_ACE_SPEC)
+        sug2, _ = enforce_ace_spec_policy(sug2, ace_jp_norm_names, USE_ACE_SPEC, FORCE_ACE_SPEC_NAME,
+                                          totals2, decks2, primary2, display2, n_sub, ace_targets_raw)
+        sug2 = _final_strict_name_cap(sug2, ace_jp_norm_names)
+
+        csv_path = os.path.join(OUT, f"suggested_deck__date_{d}.csv")
+        with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["category","card_name_jp","copies","urls"])
+            for cat,name,copies,url in sug2:
+                norm = normalize_name(name)
+                norm = apply_manual_aliases(norm, '')
+                url_set = allurls2.get(cat, {}).get(norm, set())
+                if url_set:
+                    parts = [f'=HYPERLINK("{u}","link{idx+1}")' for idx, u in enumerate(sorted(url_set))]
+                    urls_formula = parts[0] if len(parts)==1 else ("=" + "&\" | \"&".join(parts))
+                else:
+                    urls_formula = ""
+                w.writerow([cat,name,copies,urls_formula])
+
+        # 拼貼圖（每日期）
+        uniq2 = OrderedDict()
+        for cat,name,copies,url in sug2:
+            key = url or f"NAME::{normalize_name(name)}"
+            if key not in uniq2:
+                uniq2[key] = {"name": name, "url": url, "copies": 0}
+            uniq2[key]["copies"] += int(copies)
+        url_to_local2 = {}
+        def _dl(item):
+            key, info = item
+            name, u = info.get("name"), info.get("url")
+            img_u = get_card_image_url_http(u) if u else None
+            if img_u and img_u.startswith('/'):
+                img_u = BASE + img_u
+            safe = _safe_filename(name)
+            short_hash = hex(abs(hash(key)) & 0xFFFF)[2:]
+            fname = f"{safe}_{short_hash}_{d}.jpg"
+            out_path = os.path.join(img_dir, fname)
+            if img_u and not os.path.exists(out_path):
+                ok = download_image(img_u, out_path)
+                if not ok:
+                    try:
+                        from PIL import Image, ImageDraw
+                        im = Image.new('RGB', (300, 420), (230, 230, 230))
+                        d2 = ImageDraw.Draw(im)
+                        d2.text((10, 10), (safe or 'card')[:20], fill=(60,60,60))
+                        im.save(out_path)
+                    except Exception:
+                        open(out_path, 'wb').close()
+            elif not os.path.exists(out_path):
+                try:
+                    from PIL import Image, ImageDraw
+                    im = Image.new('RGB', (300, 420), (230, 230, 230))
+                    d2 = ImageDraw.Draw(im)
+                    d2.text((10, 10), (safe or 'card')[:20], fill=(60,60,60))
+                    im.save(out_path)
+                except Exception:
+                    open(out_path, 'wb').close()
+            return key, out_path
+        items = list(uniq2.items())
+        if items:
+            workers = max(1, min(IMG_DOWNLOAD_THREADS, len(items)))
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                for key, out_path in ex.map(_dl, items):
+                    url_to_local2[key] = out_path
+        image_paths = []
+        labels = []
+        for key, info in uniq2.items():
+            image_paths.append(url_to_local2.get(key, ""))
+            n = int(info.get("copies", 0))
+            labels.append(f"x{n}" if n >= 1 else "")
+        import math as _m
+        n_cards = max(1, len(image_paths))
+        cols = 8
+        rows = _m.ceil(n_cards / cols)
+        collage_path_d = os.path.join(collage_dir, f'suggested_unique__date_{d}_{n_cards}.jpg')
+        _ = make_collage(image_paths, cols=cols, rows=rows, cell_w=300, cell_h=420, out_path=collage_path_d, labels=labels)
+        print(f"[日期 {d}] 已輸出：{csv_path} 與拼貼 {collage_path_d}")
+
 def main_wrapper():
+    # Print start timestamp as the very first output of main flow
+    try:
+        _start_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        _start_ts = ""
+    print(f"Start Time: {_start_ts}")
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
