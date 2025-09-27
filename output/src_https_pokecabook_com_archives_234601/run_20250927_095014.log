@@ -1,0 +1,40 @@
+
+=== ACE SPEC（由 ACE_SPEC_LIST 輸出） ===
+ACE_SPEC_LIST_DETECTED = [
+    ("きらめく結晶", "https://www.pokemon-card.com/card-search/details.php/card/46813"),
+    ("つりざおMAX", "https://www.pokemon-card.com/card-search/details.php/card/46803"),
+    ("アンフェアスタンプ", "https://www.pokemon-card.com/card-search/details.php/card/47870"),
+    ("エネルギー転送PRO", "https://www.pokemon-card.com/card-search/details.php/card/46281"),
+    ("サバイブギプス", "https://www.pokemon-card.com/card-search/details.php/card/45642"),
+    ("シークレットボックス", "https://www.pokemon-card.com/card-search/details.php/card/45783"),
+    ("スクランブルスイッチ", "https://www.pokemon-card.com/card-search/details.php/card/46435"),
+    ("デラックスボム", "https://www.pokemon-card.com/card-search/details.php/card/46035"),
+    ("デンジャラス光線", "https://www.pokemon-card.com/card-search/details.php/card/45929"),
+    ("トレジャーガジェット", "https://www.pokemon-card.com/card-search/details.php/card/46807"),
+    ("ニュートラルセンター", "https://www.pokemon-card.com/card-search/details.php/card/46845"),
+    ("ハイパーアロマ", "https://www.pokemon-card.com/card-search/details.php/card/45641"),
+    ("パーフェクトミキサー", "https://www.pokemon-card.com/card-search/details.php/card/46197"),
+    ("ヒーローマント", "https://www.pokemon-card.com/card-search/details.php/card/48300"),
+    ("プライムキャッチャー", "https://www.pokemon-card.com/card-search/details.php/card/48274"),
+    ("プレシャスキャリー", "https://www.pokemon-card.com/card-search/details.php/card/46220"),
+    ("ポケバイタルA", "https://www.pokemon-card.com/card-search/details.php/card/45930"),
+    ("ポケモン回収サイクロン", "https://www.pokemon-card.com/card-search/details.php/card/46810"),
+    ("マキシマムベルト", "https://www.pokemon-card.com/card-search/details.php/card/47890"),
+    ("ミラクルインカム", "https://www.pokemon-card.com/card-search/details.php/card/46437"),
+    ("メガトンブロアー", "https://www.pokemon-card.com/card-search/details.php/card/46285"),
+    ("リッチエネルギー", "https://www.pokemon-card.com/card-search/details.php/card/46293"),
+    ("レガシーエネルギー", "https://www.pokemon-card.com/card-search/details.php/card/47220"),
+    ("偉大な大樹", "https://www.pokemon-card.com/card-search/details.php/card/46040"),
+    ("希望のアミュレット", "https://www.pokemon-card.com/card-search/details.php/card/46438"),
+    ("覚醒のドラム", "https://www.pokemon-card.com/card-search/details.php/card/45208"),
+]
+✓ My33pS-gJkqoC-XyRXyX 完成：{'deck_id': 'My33pS-gJkqoC-XyRXyX', 'pokemon': 17, 'goods': 14, 'tools': 3, 'supporter': 13, 'stadium': 3, 'energy': 10, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ SUMp3M-oPayQp-yUyXpp 完成：{'deck_id': 'SUMp3M-oPayQp-yUyXpp', 'pokemon': 17, 'goods': 15, 'tools': 4, 'supporter': 11, 'stadium': 3, 'energy': 10, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ UpSypX-U5FqJX-2yyS3M 完成：{'deck_id': 'UpSypX-U5FqJX-2yyS3M', 'pokemon': 15, 'goods': 18, 'tools': 3, 'supporter': 12, 'stadium': 3, 'energy': 9, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ Ycc8c8-6QaHAZ-cxYaGK 完成：{'deck_id': 'Ycc8c8-6QaHAZ-cxYaGK', 'pokemon': 16, 'goods': 15, 'tools': 4, 'supporter': 12, 'stadium': 3, 'energy': 10, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ yyXyp2-8Wuj3v-XSp3pE 完成：{'deck_id': 'yyXyp2-8Wuj3v-XSp3pE', 'pokemon': 17, 'goods': 15, 'tools': 3, 'supporter': 12, 'stadium': 3, 'energy': 10, 'total_cards': 60} ｜ 找到 ACE SPEC: ['プライムキャッチャー(ACE SPEC)']
+✓ vwkvFk-jyW1Z6-f1kdFF 完成：{'deck_id': 'vwkvFk-jyW1Z6-f1kdFF', 'pokemon': 18, 'goods': 13, 'tools': 4, 'supporter': 11, 'stadium': 2, 'energy': 12, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ iLng6Q-aGVDJ7-gnngQn 完成：{'deck_id': 'iLng6Q-aGVDJ7-gnngQn', 'pokemon': 16, 'goods': 17, 'tools': 5, 'supporter': 11, 'stadium': 2, 'energy': 9, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ 6NQLLi-GYSKYn-nQg6nH 完成：{'deck_id': '6NQLLi-GYSKYn-nQg6nH', 'pokemon': 15, 'goods': 18, 'tools': 3, 'supporter': 12, 'stadium': 3, 'energy': 9, 'total_cards': 60} ｜ 找到 ACE SPEC: ['プライムキャッチャー(ACE SPEC)']
+✓ kkFkkF-dDW0hB-vVkFw1 完成：{'deck_id': 'kkFkkF-dDW0hB-vVkFw1', 'pokemon': 17, 'goods': 14, 'tools': 4, 'supporter': 12, 'stadium': 4, 'energy': 9, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']
+✓ 1FwFkb-2drQmN-kFvVd5 完成：{'deck_id': '1FwFkb-2drQmN-kFvVd5', 'pokemon': 15, 'goods': 17, 'tools': 3, 'supporter': 12, 'stadium': 3, 'energy': 10, 'total_cards': 60} ｜ 找到 ACE SPEC: ['マキシマムベルト(ACE SPEC)']

@@ -1,0 +1,17 @@
+﻿category,card_name_jp,copies,urls
+pokemon,リオル,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47761/"",""link1"")"
+pokemon,マクノシタ,4,"==HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47757/"",""link1"")&"" | ""&=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/48250/"",""link2"")"
+pokemon,メガルカリオex,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47762/"",""link1"")"
+pokemon,ハリテヤマ,3,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47758/"",""link1"")"
+goods,ハイパーボール,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/48295/"",""link1"")"
+goods,ファイトゴング,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47792/"",""link1"")"
+goods,パワープロテイン,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47791/"",""link1"")"
+goods,夜のタンカ,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/48298/"",""link1"")"
+goods,ネストボール,1,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47878/"",""link1"")"
+tools,ふうせん,3,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47889/"",""link1"")"
+supporter,リーリエの決心,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/48304/"",""link1"")"
+supporter,博士の研究,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/40137/"",""link1"")"
+supporter,ナンジャモ,4,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47895/"",""link1"")"
+stadium,ボウルタウン,3,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47216/"",""link1"")"
+energy,基本闘エネルギー,9,"=HYPERLINK(""https://www.pokemon-card.com/card-search/details.php/card/47908/"",""link1"")"
+goods,マキシマムベルト,1,

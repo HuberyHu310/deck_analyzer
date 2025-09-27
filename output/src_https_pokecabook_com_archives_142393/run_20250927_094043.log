@@ -1,0 +1,50 @@
+
+=== ACE SPEC（由 ACE_SPEC_LIST 輸出） ===
+ACE_SPEC_LIST_DETECTED = [
+    ("きらめく結晶", "https://www.pokemon-card.com/card-search/details.php/card/46813"),
+    ("つりざおMAX", "https://www.pokemon-card.com/card-search/details.php/card/46803"),
+    ("アンフェアスタンプ", "https://www.pokemon-card.com/card-search/details.php/card/47870"),
+    ("エネルギー転送PRO", "https://www.pokemon-card.com/card-search/details.php/card/46281"),
+    ("サバイブギプス", "https://www.pokemon-card.com/card-search/details.php/card/45642"),
+    ("シークレットボックス", "https://www.pokemon-card.com/card-search/details.php/card/45783"),
+    ("スクランブルスイッチ", "https://www.pokemon-card.com/card-search/details.php/card/46435"),
+    ("デラックスボム", "https://www.pokemon-card.com/card-search/details.php/card/46035"),
+    ("デンジャラス光線", "https://www.pokemon-card.com/card-search/details.php/card/45929"),
+    ("トレジャーガジェット", "https://www.pokemon-card.com/card-search/details.php/card/46807"),
+    ("ニュートラルセンター", "https://www.pokemon-card.com/card-search/details.php/card/46845"),
+    ("ハイパーアロマ", "https://www.pokemon-card.com/card-search/details.php/card/45641"),
+    ("パーフェクトミキサー", "https://www.pokemon-card.com/card-search/details.php/card/46197"),
+    ("ヒーローマント", "https://www.pokemon-card.com/card-search/details.php/card/48300"),
+    ("プライムキャッチャー", "https://www.pokemon-card.com/card-search/details.php/card/48274"),
+    ("プレシャスキャリー", "https://www.pokemon-card.com/card-search/details.php/card/46220"),
+    ("ポケバイタルA", "https://www.pokemon-card.com/card-search/details.php/card/45930"),
+    ("ポケモン回収サイクロン", "https://www.pokemon-card.com/card-search/details.php/card/46810"),
+    ("マキシマムベルト", "https://www.pokemon-card.com/card-search/details.php/card/47890"),
+    ("ミラクルインカム", "https://www.pokemon-card.com/card-search/details.php/card/46437"),
+    ("メガトンブロアー", "https://www.pokemon-card.com/card-search/details.php/card/46285"),
+    ("リッチエネルギー", "https://www.pokemon-card.com/card-search/details.php/card/46293"),
+    ("レガシーエネルギー", "https://www.pokemon-card.com/card-search/details.php/card/47220"),
+    ("偉大な大樹", "https://www.pokemon-card.com/card-search/details.php/card/46040"),
+    ("希望のアミュレット", "https://www.pokemon-card.com/card-search/details.php/card/46438"),
+    ("覚醒のドラム", "https://www.pokemon-card.com/card-search/details.php/card/45208"),
+]
+✓ gn69nn-A4kxh4-gnNQQg 完成：{'deck_id': 'gn69nn-A4kxh4-gnNQQg', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['パーフェクトミキサー(ACE SPEC)']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_gn69nn-A4kxh4-gnNQQg.txt
+✓ DY88K8-Iim2r8-Gc8Y88 完成：{'deck_id': 'DY88K8-Iim2r8-Gc8Y88', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['レガシーエネルギー']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_DY88K8-Iim2r8-Gc8Y88.txt
+✓ LHggLg-rqc3xe-nQL6Hn 完成：{'deck_id': 'LHggLg-rqc3xe-nQL6Hn', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['レガシーエネルギー']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_LHggLg-rqc3xe-nQL6Hn.txt
+✓ fvdFfk-zBJY0C-Fkkwfv 完成：{'deck_id': 'fvdFfk-zBJY0C-Fkkwfv', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['レガシーエネルギー']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_fvdFfk-zBJY0C-Fkkwfv.txt
+✓ kkfkFb-fzT50Z-kwkkkv 完成：{'deck_id': 'kkfkFb-fzT50Z-kwkkkv', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['レガシーエネルギー']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_kkfkFb-fzT50Z-kwkkkv.txt
+✓ 8cc8Dx-Ep7Sml-KYDcKK 完成：{'deck_id': '8cc8Dx-Ep7Sml-KYDcKK', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['レガシーエネルギー']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_8cc8Dx-Ep7Sml-KYDcKK.txt
+✓ 6gPggn-p5k0E5-LLQP6g 完成：{'deck_id': '6gPggn-p5k0E5-LLQP6g', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['パーフェクトミキサー(ACE SPEC)']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_6gPggn-p5k0E5-LLQP6g.txt
+✓ Q69Lin-ZtVmBC-6nnnLg 完成：{'deck_id': 'Q69Lin-ZtVmBC-6nnnLg', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['パーフェクトミキサー(ACE SPEC)']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_Q69Lin-ZtVmBC-6nnnLg.txt
+✓ kfFfdF-c5S99r-vvkvvw 完成：{'deck_id': 'kfFfdF-c5S99r-vvkvvw', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['パーフェクトミキサー(ACE SPEC)']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_kfFfdF-c5S99r-vvkvvw.txt
+✓ fkFbkf-XmCBZb-FVwvwf 完成：{'deck_id': 'fkFbkf-XmCBZb-FVwvwf', 'pokemon': 0, 'goods': 0, 'tools': 0, 'supporter': 0, 'stadium': 0, 'energy': 0, 'total_cards': 60} ｜ 找到 ACE SPEC: ['レガシーエネルギー']
+[diag] 已輸出分類為 0 的區塊標題樣本：D:\Hubery\deck_analyzer\output\src_https_pokecabook_com_archives_142393\diagnostics\sections_fkFbkf-XmCBZb-FVwvwf.txt
