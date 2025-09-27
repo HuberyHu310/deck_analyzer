@@ -188,7 +188,7 @@ def section_to_category(sec: Optional[str]) -> Optional[str]:
 # 可調整參數：資料來源（可複數）、範圍、ACE 規則、過濾條件
 POKECABOOK_SOURCES: List[str] = [
     "https://pokecabook.com/archives/234601",
-    "https://pokecabook.com/archives/142393",
+    #"https://pokecabook.com/archives/142393",
 ]
 # 相容既有程式碼：提供第一個來源作為預設單一來源常數
 POKECABOOK_URL: str = POKECABOOK_SOURCES[0] if POKECABOOK_SOURCES else ""
@@ -1505,6 +1505,12 @@ def analyze_source(src: str) -> None:
                 stats["date"] = deck_date_map.get(did, src_date)
                 stats["source_url"] = src
                 all_stats.append(stats)
+
+                # 補充印出本牌組日期資訊，方便追蹤
+                try:
+                    print(f"    [{did}] 日期：{stats.get('date') or ''}")
+                except Exception:
+                    pass
 
                 # 逐 deck 診斷：若六大類總和為 0 但總張數 > 0，輸出 section 範例供排查
                 try:
