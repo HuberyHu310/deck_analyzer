@@ -1558,8 +1558,20 @@ def analyze_source(src: str) -> None:
         d = s.get("date") or "未知"
         date_buckets.setdefault(d, 0)
         date_buckets[d] += 1
-    for d in sorted(date_buckets.keys()):
-        print(f"{d}: {date_buckets[d]} 副")
+    # 由近到遠（新到舊）；未知日期放最後
+    known = []
+    unknown = []
+    for d, cnt in date_buckets.items():
+        try:
+            y, m, dd = [int(x) for x in str(d).split('-')]
+            known.append(((y, m, dd), d, cnt))
+        except Exception:
+            unknown.append((d, cnt))
+    known.sort(key=lambda t: t[0], reverse=True)
+    for _, d, cnt in known:
+        print(f"{d}: {cnt} 副")
+    for d, cnt in unknown:
+        print(f"{d}: {cnt} 副")
 
     rows_summary = []
     for cat in cats:
