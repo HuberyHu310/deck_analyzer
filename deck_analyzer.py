@@ -648,7 +648,28 @@ def open_driver():
     opts.add_argument("--disable-gpu")
     opts.add_argument("--lang=ja-JP")
     opts.add_argument("--user-agent=Mozilla/5.0")
-    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
+    # Suppress verbose Chrome/Chromedriver logging in console
+    opts.add_argument("--log-level=3")           # ERROR
+    opts.add_argument("--disable-logging")
+    opts.add_experimental_option(
+        "excludeSwitches", ["enable-logging", "enable-automation"]
+    )
+    opts.add_experimental_option("useAutomationExtension", False)
+
+    # Reduce webdriver-manager logs
+    try:
+        os.environ.setdefault("WDM_LOG_LEVEL", "0")
+    except Exception:
+        pass
+
+    # Route chromedriver logs to DEVNULL when supported
+    try:
+        import subprocess
+        service = Service(ChromeDriverManager().install(), log_output=subprocess.DEVNULL)
+    except TypeError:
+        # Older selenium: no log_output param
+        service = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=service, options=opts)
 
 def click_cookies(driver):
     for sel in ["#onetrust-accept-btn-handler", ".cookie a", ".cookie button", "button[aria-label*='同意']"]:
