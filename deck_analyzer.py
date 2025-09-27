@@ -1,4 +1,4 @@
-"""
+﻿"""
 deck_analyzer_v1
 
 重點說明：
@@ -141,23 +141,33 @@ def print_ace_spec_list_once():
     os.environ["ACE_PRINTED_ONCE"] = "1"
 
 def section_to_category(sec: Optional[str]) -> Optional[str]:
-    """Map a section header (JP text from deck list) to an internal category key."""
+    """Map a section header (JP text from deck list) to an internal category key.
+    Uses robust matching with Japanese literals (escaped) and strips count suffixes like （13）.
+    """
     if not sec:
         return None
-    normalized = (sec or "").strip()
+    s = (sec or "").strip()
+    # Strip counts like "（13）" or "(13)" and extra spaces
+    try:
+        import re as _re
+        s = _re.sub(r"[\u3000\s]*[（(].*?[）)]", "", s)
+    except Exception:
+        pass
+    # Canonical keyword mapping
     jp_keywords = [
-        ("????????", "tools"),
-        ("????", "pokemon"),
-        ("???", "goods"),
-        ("????", "supporter"),
-        ("?????", "stadium"),
-        ("?????", "energy"),
-        ("???????", "energy"),
+        ("\u30dd\u30b1\u30e2\u30f3\u306e\u3069\u3046\u3050", "tools"),      # ポケモンのどうぐ
+        ("\u30b0\u30c3\u30ba", "goods"),                                      # グッズ
+        ("\u30b5\u30dd\u30fc\u30c8", "supporter"),                           # サポート
+        ("\u30b9\u30bf\u30b8\u30a2\u30e0", "stadium"),                       # スタジアム
+        ("\u30a8\u30cd\u30eb\u30ae\u30fc", "energy"),                        # エネルギー
+        ("\u7279\u6b8a\u30a8\u30cd\u30eb\u30ae\u30fc", "energy"),           # 特殊エネルギー
+        ("\u30dd\u30b1\u30e2\u30f3", "pokemon"),                              # ポケモン
         ("ACE SPEC", "ace_spec"),
     ]
     for key, cat in jp_keywords:
-        if key in normalized:
+        if key in s:
             return cat
+    # Legacy mojibake placeholders fallback
     legacy_map = {
         "?????": "energy",
         "????": "supporter",
@@ -167,7 +177,7 @@ def section_to_category(sec: Optional[str]) -> Optional[str]:
         "????": "pokemon",
     }
     for key, cat in legacy_map.items():
-        if key in normalized:
+        if key in s:
             return cat
     return None
 
@@ -690,10 +700,27 @@ def force_list_view(driver, wait: WebDriverWait, deck_id: str):
         save_debug(driver, deck_id, "list_not_visible")
         raise
 
+_HERF_WARNED_ONCE = False  # Site quirk: some anchors mistakenly use "herf" instead of "href"
+
 def extract_url_from_cell(cell):
+    """Best-effort extraction of the card detail URL from a table cell.
+    Handles normal href, the site's common onclick pattern, and a known typo "herf".
+    """
+    global _HERF_WARNED_ONCE
     anchors = cell.find_elements(By.CSS_SELECTOR, "a")
     for a in anchors:
         href = (a.get_attribute("href") or "").strip()
+        # Quirk: some pages mistakenly write herf instead of href
+        if not href:
+            herf = (a.get_attribute("herf") or "").strip()
+            if herf:
+                href = herf
+                if not _HERF_WARNED_ONCE:
+                    try:
+                        print("[warn] Detected anchor with 'herf' instead of 'href'; handled as href.")
+                    except Exception:
+                        pass
+                    _HERF_WARNED_ONCE = True
         if href and not href.lower().startswith("javascript"):
             return href if not href.startswith("/") else BASE + href
         onclick = (a.get_attribute("onclick") or "")
@@ -709,19 +736,18 @@ def extract_url_from_cell(cell):
     return ""
 
 def parse_table(driver, deck_id: str):
-    """Parse list view into rows of (section_jp, raw_name, count, url)."""
-    selectors = [
-        "#cardListView .deckListTable tbody tr",
-        "section#cardListView .deckListTable tbody tr",
-        "#cardListView table tbody tr",
-        "section#cardListView table tbody tr",
-    ]
-    rows = []
-    for sel in selectors:
-        rows = driver.find_elements(By.CSS_SELECTOR, sel)
-        if rows: break
+    """Parse list view into rows of (section_jp, raw_name, count, url).
+    Cover both table and definition-list layouts, preserving header order.
+    """
+    rows = driver.find_elements(
+        By.CSS_SELECTOR,
+        "#cardListView th, #cardListView dt, #cardListView .deckListTable tbody tr, #cardListView table tbody tr, #cardListView li"
+    )
     if not rows:
-        rows = driver.find_elements(By.CSS_SELECTOR, "#cardListView dl, #cardListView li")
+        rows = driver.find_elements(
+            By.CSS_SELECTOR,
+            "section#cardListView th, section#cardListView dt, section#cardListView table tbody tr, section#cardListView li"
+        )
     if not rows:
         save_debug(driver, deck_id, "no_rows")
         return []
@@ -732,8 +758,37 @@ def parse_table(driver, deck_id: str):
         ths = r.find_elements(By.TAG_NAME, "th")
         if ths:
             section = ths[0].text.strip(); continue
+        # Some pages use <dt> as the section header instead of <th>
+        dts = r.find_elements(By.TAG_NAME, "dt")
+        if dts:
+            section = dts[0].text.strip(); continue
         tds = r.find_elements(By.TAG_NAME, "td")
         if len(tds) >= 2:
+            # Fallbacks: if section is still empty, try nearest previous section header
+            if not section:
+                try:
+                    # Previous header row in table form
+                    prev_th = r.find_elements(By.XPATH, "preceding-sibling::tr[th][1]/th[1]")
+                    if prev_th:
+                        section = prev_th[0].text.strip()
+                except Exception:
+                    pass
+            if not section:
+                try:
+                    # Previous header in definition list form (same parent)
+                    prev_dt = r.find_elements(By.XPATH, "preceding-sibling::dt[1]")
+                    if prev_dt:
+                        section = prev_dt[0].text.strip()
+                except Exception:
+                    pass
+            if not section:
+                try:
+                    # If we are inside <dd><ul><li>..., find the dt before the enclosing dd
+                    prev_dt2 = r.find_elements(By.XPATH, "ancestor::dd[1]/preceding-sibling::dt[1]")
+                    if prev_dt2:
+                        section = prev_dt2[0].text.strip()
+                except Exception:
+                    pass
             name_cell = tds[0]
             try:
                 with open(f"debug_cells/{deck_id}_row{i}.html", "w", encoding="utf-8") as f:
@@ -1199,6 +1254,25 @@ def analyze_source(src: str) -> None:
     OUT = os.path.join(OUTPUT_DIR, f"src_{safe_tag}")
     os.makedirs(OUT, exist_ok=True)
 
+    # 將此來源的執行輸出同步寫入檔案，便於之後分析
+    log_path = os.path.join(OUT, f"run_{RUN_TIMESTAMP}.log")
+    _orig_stdout, _orig_stderr = sys.stdout, None
+    try:
+        _log_file = open(log_path, "w", encoding="utf-8")
+        class _Tee:
+            def __init__(self, *streams): self.streams = streams
+            def write(self, s):
+                for st in self.streams:
+                    try: st.write(s)
+                    except Exception: pass
+            def flush(self):
+                for st in self.streams:
+                    try: st.flush()
+                    except Exception: pass
+        sys.stdout = _Tee(_orig_stdout, _log_file)
+    except Exception:
+        _log_file = None
+
     # 每個來源使用獨立的 SQLite 快取檔，避免交互覆寫與鎖定
     global CACHE_DB
     CACHE_DB = os.path.join(OUT, f"deck_cache_{safe_tag}.sqlite")
@@ -1232,7 +1306,7 @@ def analyze_source(src: str) -> None:
     # 初始化
     init_cache()
     ace_jp_norm_names = set(ace_targets_raw.keys())
-    driver = open_driver()
+    driver = None  # lazy init driver
     all_rows, all_stats, ace_occurrences = [], [], []
     ace_deck_sets = {jp: set() for jp in ace_jp_norm_names}
 
@@ -1243,6 +1317,13 @@ def analyze_source(src: str) -> None:
     name_all_urls   = {c:{} for c in cats}
     name_display    = {c:{} for c in cats}
 
+    # Per-date accumulators for daily analysis
+    date_totals = {}  # date -> cat -> norm -> count
+    date_decks  = {}  # date -> cat -> norm -> set(deck_id)
+    date_primary= {}  # date -> cat -> norm -> url
+    date_allurls= {}  # date -> cat -> norm -> set(url)
+    date_display= {}  # date -> cat -> norm -> display name
+
     try:
         for did in deck_ids:
             try:
@@ -1250,7 +1331,30 @@ def analyze_source(src: str) -> None:
                 if cached is not None:
                     cards, stats = cached
                     print(f"♻ 使用快取：{did}")
+                    # 壞快取偵測：總張數 > 0 但六大類全為 0，或所有 section 皆為空
+                    bad_cache = False
+                    try:
+                        if isinstance(stats, dict):
+                            cat_sum = sum(int(stats.get(k, 0)) for k in ("pokemon","goods","tools","supporter","stadium","energy"))
+                            if int(stats.get("total_cards", 0)) > 0 and cat_sum == 0:
+                                bad_cache = True
+                    except Exception:
+                        bad_cache = True
+                    try:
+                        if cards and all(not (str(sec or '').strip()) for sec, _, _, _ in cards):
+                            bad_cache = True
+                    except Exception:
+                        pass
+                    if bad_cache:
+                        print(f"[cache] 偵測到壞快取，重新抓取：{did}")
+                        if driver is None:
+                            driver = open_driver()
+                        cards = fetch_deck(driver, did)
+                        stats = analyze_deck(did, cards)
+                        save_cached_deck(did, cards, stats)
                 else:
+                    if driver is None:
+                        driver = open_driver()
                     cards = fetch_deck(driver, did)
                     stats = analyze_deck(did, cards)
                     save_cached_deck(did, cards, stats)
@@ -1259,7 +1363,14 @@ def analyze_source(src: str) -> None:
                     print(f"✗ {did} 跳過（不符合卡片過濾條件）")
                     continue
 
+                # 收集本牌組的 section 範例以利診斷
+                sec_samples = set()
                 for sec, raw_name, cnt, url in cards:
+                    try:
+                        if sec:
+                            sec_samples.add(str(sec))
+                    except Exception:
+                        pass
                     cat = section_to_category(sec)
                     if cat not in cats:
                         continue
@@ -1281,6 +1392,29 @@ def analyze_source(src: str) -> None:
                         card_decks[cat][norm] = {did}
                     else:
                         s.add(did)
+                    # Per-date accumulation
+                    dkey = deck_date_map.get(did, src_date)
+                    if dkey:
+                        if dkey not in date_totals:
+                            date_totals[dkey] = {c:{} for c in cats}
+                            date_decks[dkey]  = {c:{} for c in cats}
+                            date_primary[dkey]= {c:{} for c in cats}
+                            date_allurls[dkey]= {c:{} for c in cats}
+                            date_display[dkey]= {c:{} for c in cats}
+                        if norm not in date_display[dkey][cat]:
+                            date_display[dkey][cat][norm] = disp_name
+                        if norm not in date_primary[dkey][cat] and url:
+                            date_primary[dkey][cat][norm] = url
+                        if norm not in date_allurls[dkey][cat]:
+                            date_allurls[dkey][cat][norm] = set()
+                        if url:
+                            date_allurls[dkey][cat][norm].add(url)
+                        date_totals[dkey][cat][norm] = date_totals[dkey][cat].get(norm, 0) + cnt
+                        s2 = date_decks[dkey][cat].get(norm)
+                        if s2 is None:
+                            date_decks[dkey][cat][norm] = {did}
+                        else:
+                            s2.add(did)
 
                 for sec, raw_name, cnt, url in cards:
                     if   "エネルギー" in sec: cat = "energy"
@@ -1308,6 +1442,29 @@ def analyze_source(src: str) -> None:
                         card_decks[cat][norm] = {did}
                     else:
                         s.add(did)
+                    # Per-date accumulation
+                    dkey = deck_date_map.get(did, src_date)
+                    if dkey:
+                        if dkey not in date_totals:
+                            date_totals[dkey] = {c:{} for c in cats}
+                            date_decks[dkey]  = {c:{} for c in cats}
+                            date_primary[dkey]= {c:{} for c in cats}
+                            date_allurls[dkey]= {c:{} for c in cats}
+                            date_display[dkey]= {c:{} for c in cats}
+                        if norm not in date_display[dkey][cat]:
+                            date_display[dkey][cat][norm] = disp_name
+                        if norm not in date_primary[dkey][cat] and url:
+                            date_primary[dkey][cat][norm] = url
+                        if norm not in date_allurls[dkey][cat]:
+                            date_allurls[dkey][cat][norm] = set()
+                        if url:
+                            date_allurls[dkey][cat][norm].add(url)
+                        date_totals[dkey][cat][norm] = date_totals[dkey][cat].get(norm, 0) + cnt
+                        s2 = date_decks[dkey][cat].get(norm)
+                        if s2 is None:
+                            date_decks[dkey][cat][norm] = {did}
+                        else:
+                            s2.add(did)
 
                 found_aces = []
                 for _, raw_name, cnt, _ in cards:
@@ -1327,12 +1484,46 @@ def analyze_source(src: str) -> None:
                 stats["date"] = deck_date_map.get(did, src_date)
                 stats["source_url"] = src
                 all_stats.append(stats)
+
+                # 逐 deck 診斷：若六大類總和為 0 但總張數 > 0，輸出 section 範例供排查
+                try:
+                    cat_sum = sum(int(stats.get(k, 0)) for k in ("pokemon","goods","tools","supporter","stadium","energy"))
+                    if int(stats.get("total_cards", 0)) > 0 and cat_sum == 0:
+                        diag_dir = os.path.join(OUT, "diagnostics")
+                        os.makedirs(diag_dir, exist_ok=True)
+                        diag_path = os.path.join(diag_dir, f"sections_{did}.txt")
+                        with open(diag_path, "w", encoding="utf-8") as df:
+                            df.write("Sections captured for deck " + did + "\n")
+                            for s in sorted({(s or '').strip() for s in sec_samples if s}):
+                                df.write(s + "\n")
+                            df.write("\nFirst 10 cards (section, name, cnt):\n")
+                            for sec, raw_name, cnt, url in cards[:10]:
+                                sec_str = (sec or '').strip()
+                                df.write(f"- {sec_str} | {raw_name} | {cnt}\n")
+                        print(f"[diag] 已輸出分類為 0 的區塊標題樣本：{diag_path}")
+                except Exception:
+                    pass
                 time.sleep(0.5)
             except Exception as e:
                 print(f"⚠ {did} 失敗：{e}")
                 continue
     finally:
-        driver.quit()
+        try:
+            if driver is not None:
+                driver.quit()
+        except Exception:
+            pass
+        # 還原 stdout 並關閉 log
+        try:
+            if _log_file:
+                _log_file.flush(); _log_file.close()
+        except Exception:
+            pass
+        try:
+            if _orig_stdout is not None:
+                sys.stdout = _orig_stdout
+        except Exception:
+            pass
 
     # 統計與輸出
     total_decks = len([1 for _ in all_stats])
@@ -1587,36 +1778,18 @@ def analyze_source(src: str) -> None:
         if not dids:
             continue
         cats2 = ["pokemon","goods","tools","supporter","stadium","energy"]
-        totals2 = {c:{} for c in cats2}
-        decks2  = {c:{} for c in cats2}
-        primary2= {c:{} for c in cats2}
-        allurls2= {c:{} for c in cats2}
-        display2= {c:{} for c in cats2}
-
-        for did, sec, raw_name, cnt, url in all_rows:
-            if did not in dids:
-                continue
-            cat = section_to_category(sec)
-            if cat not in cats2:
-                continue
-            disp = get_official_card_name(url) or raw_name
-            norm = normalize_name(disp)
-            norm = apply_manual_aliases(norm, url)
-            if norm not in display2[cat]:
-                display2[cat][norm] = disp
-            if norm not in primary2[cat] and url:
-                primary2[cat][norm] = url
-            allurls2.setdefault(cat, {})
-            if norm not in allurls2[cat]:
-                allurls2[cat][norm] = set()
-            if url:
-                allurls2[cat][norm].add(url)
-            totals2[cat][norm] = totals2[cat].get(norm, 0) + int(cnt)
-            sset = decks2[cat].get(norm)
-            if sset is None:
-                decks2[cat][norm] = {did}
-            else:
-                sset.add(did)
+        if d in date_totals:
+            totals2 = date_totals[d]
+            decks2  = date_decks[d]
+            primary2= date_primary[d]
+            allurls2= date_allurls[d]
+            display2= date_display[d]
+        else:
+            totals2 = {c:{} for c in cats2}
+            decks2  = {c:{} for c in cats2}
+            primary2= {c:{} for c in cats2}
+            allurls2= {c:{} for c in cats2}
+            display2= {c:{} for c in cats2}
 
         sub_stats = [s for s in all_stats if s.get("deck_id") in dids]
         n_sub = len(sub_stats)
@@ -1626,13 +1799,13 @@ def analyze_source(src: str) -> None:
                 sums2[c] += s[c]
         avgs2 = {c: (sums2[c]/n_sub if n_sub else 0.0) for c in cats2}
         targets2 = round_targets_to_60(avgs2)
-        print(f"\n=== [?? {d}] ???? ===")
-        print(f"????{n_sub}")
+        print(f"\n=== [日期 {d}] 分析摘要 ===")
+        print(f"牌組數：{n_sub}")
         for cat in cats2:
-            print(f"  {cat}: ?? {avgs2.get(cat, 0.0):.2f} ?")
+            print(f"  {cat}: 平均 {avgs2.get(cat, 0.0):.2f} 張")
         if n_sub > 0:
-            print(f"  ?????????? {SUGGEST_MIN_DECKS} ????{SUGGEST_MIN_USAGE_RATE:.1%} ???")
-        print(f"--- [?? {d}] ?????? Top3?? avg_overall? ---")
+            print(f"  使用率過濾條件：至少 {SUGGEST_MIN_DECKS} 副、{SUGGEST_MIN_USAGE_RATE:.1%} 使用率")
+        print(f"--- [日期 {d}] 各類熱門卡片 Top3（依 avg_overall） ---")
         for cat in cats2:
             items = []
             for norm_name, total_cnt in totals2[cat].items():
@@ -1642,21 +1815,21 @@ def analyze_source(src: str) -> None:
                 url = primary2[cat].get(norm_name, "")
                 items.append((avg_overall, decks_with_card, disp, url))
             if not items:
-                print(f"[{cat}] ???")
+                print(f"[{cat}] 無資料")
                 continue
             items.sort(key=lambda x: x[0], reverse=True)
             top_items = items[:3]
             print(f"[{cat}]")
             for avg_overall, decks_with_card, disp, url in top_items:
-                link = url or "???????"
-                print(f"  {disp}??? {avg_overall:.2f} ????? {decks_with_card} ??? -> {link}")
+                link = url or "（無官方連結）"
+                print(f"  {disp}：平均 {avg_overall:.2f} 張，出現於 {decks_with_card} 副牌組 -> {link}")
 
         sug2 = build_suggested_deck(targets2, totals2, decks2, primary2, display2, n_sub,
                                     ace_jp_norm_names, USE_ACE_SPEC)
         sug2, _ = enforce_ace_spec_policy(sug2, ace_jp_norm_names, USE_ACE_SPEC, FORCE_ACE_SPEC_NAME,
                                           totals2, decks2, primary2, display2, n_sub, ace_targets_raw)
         sug2 = _final_strict_name_cap(sug2, ace_jp_norm_names)
-        print(f"\n=== [?? {d}] ??????? 60 ?? ===")
+        print(f"\n=== [日期 {d}] 建議牌組（目標 60 張） ===")
         cat_totals2 = {c: 0 for c in cats2}
         total_cards2 = 0
         for cat, name, copies, _ in sug2:
@@ -1666,11 +1839,11 @@ def analyze_source(src: str) -> None:
             block_cards = [(c, n, int(k), u) for (c, n, k, u) in sug2 if c == cat]
             if not block_cards:
                 continue
-            print(f"[{cat}]??? {cat_totals2.get(cat, 0)} ??")
+            print(f"[{cat}]（小計 {cat_totals2.get(cat, 0)} 張）")
             for _, name, copies, url in block_cards:
-                link = url or "???????"
-                print(f"  {name} ? {copies}  -> {link}")
-        print(f"???{total_cards2} ?")
+                link = url or "（無官方連結）"
+                print(f"  {name} × {copies}  -> {link}")
+        print(f"總計：{total_cards2} 張")
 
         csv_path = os.path.join(OUT, f"suggested_deck__date_{d}.csv")
         with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
@@ -1902,6 +2075,8 @@ if __name__=="__main__":
     if sys.maxsize <= 2**32:
         print("⚠ 建議用 64 位元 Python")
     main_wrapper()
+
+
 
 
 
