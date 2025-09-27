@@ -1,0 +1,25 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  # Fast sanity checks before committing
+  - repo: local
+    hooks:
+      - id: py-compile
+        name: Python compile (deck_analyzer + tests)
+        entry: python -m py_compile deck_analyzer.py tests/test_deck_analyzer.py
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
+      - id: unit-tests
+        name: Unit tests (unittest discover)
+        entry: python -m unittest discover -s tests -p "test*.py" -v
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
